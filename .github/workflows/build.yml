@@ -42,7 +42,6 @@ jobs:
     name: Create GitHub Release
     needs: [prepare]
     permissions: write-all
-    if: needs.prepare.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
