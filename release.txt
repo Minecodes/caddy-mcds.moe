@@ -1,1 +1,17 @@
-First beta release
+# First release
+## Features
+ - Added support for arm64 Linux builds.
+
+## Extensions:
+ - `caddy-exec`
+ - `desec`
+ - `transform-encoder`
+ - `souin`
+ - `mercure`
+ - `vulcain`
+ - `caddy-discord`
+ - `caddy-git`
+ - `caddy-teapot-module`
+ - `caddy-l4`
+ - `caddy-ratelimit`
+ - `caddy-gopkg`

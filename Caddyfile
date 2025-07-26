@@ -1,9 +1,10 @@
 {
-	filesystem a embedded
+	filesystem test embedded
 }
 
 http://localhost:3000 {
+	root * /test
 	file_server {
-		fs a
+		fs test
 	}
 }

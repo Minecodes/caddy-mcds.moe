@@ -71,7 +71,7 @@ jobs:
         description="${{ steps.read_description.outputs.description }}"
         gh release create "$tag" --title "$tag" --notes "$description" --draft=true
 
-  build:
+  build-amd64-linux:
     needs: [prepare, release]
     runs-on: ubuntu-latest
     permissions: write-all
@@ -80,7 +80,7 @@ jobs:
       uses: actions/checkout@v4
 
       # --with github.com/dunglas/caddy-cbrotli \
-    - name: Build with xcaddy
+    - name: Build for amd64 Linux
       run: |
         cd ${{ github.workspace }}
         sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
@@ -102,17 +102,55 @@ jobs:
           --with github.com/mholt/caddy-ratelimit \
           --with magnax.ca/caddy/gopkg \
           --output caddy-amd64-linux \
-          --embed test:embed/
+          --embed ./embed
     - name: Upload Caddy binary
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh release upload "${{ needs.release.outputs.tag }}" "caddy-amd64-linux"
+  
+  build-arm64-linux:
+    needs: [prepare, release]
+    runs-on: ubuntu-24.04-arm
+    permissions: write-all
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+      # --with github.com/dunglas/caddy-cbrotli \
+    - name: Build for arm64 Linux
+      run: |
+        cd ${{ github.workspace }}
+        sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-xcaddy.list
+        sudo apt update
+        sudo apt install xcaddy
+        xcaddy build \
+          --with github.com/abiosoft/caddy-exec \
+          --with github.com/caddy-dns/desec \
+          --with github.com/caddyserver/transform-encoder \
+          --with github.com/darkweak/souin/plugins/caddy \
+          --with github.com/dunglas/mercure/caddy \
+          --with github.com/dunglas/vulcain/caddy \
+          --with github.com/enum-gg/caddy-discord \
+          --with github.com/greenpau/caddy-git \
+          --with github.com/hairyhenderson/caddy-teapot-module \
+          --with github.com/mholt/caddy-l4 \
+          --with github.com/mholt/caddy-ratelimit \
+          --with magnax.ca/caddy/gopkg \
+          --output caddy-arm64-linux \
+          --embed ./embed
+    - name: Upload Caddy binary
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release upload "${{ needs.release.outputs.tag }}" "caddy-arm64-linux"
 
 
   publish:
     name: Publish Release
-    needs: [release, build]
+    needs: [release, build-amd64-linux, build-arm64-linux]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
