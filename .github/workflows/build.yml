@@ -79,6 +79,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+      # --with github.com/dunglas/caddy-cbrotli \
     - name: Build with xcaddy
       run: |
         cd ${{ github.workspace }}
@@ -92,7 +93,6 @@ jobs:
           --with github.com/caddy-dns/desec \
           --with github.com/caddyserver/transform-encoder \
           --with github.com/darkweak/souin/plugins/caddy \
-          --with github.com/dunglas/caddy-cbrotli \
           --with github.com/dunglas/mercure/caddy \
           --with github.com/dunglas/vulcain/caddy \
           --with github.com/enum-gg/caddy-discord \
