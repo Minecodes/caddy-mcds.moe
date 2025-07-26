@@ -103,6 +103,10 @@ jobs:
           --with magnax.ca/caddy/gopkg \
           --output caddy-amd64-linux \
           --embed test:embed/
+    - name: Upload Caddy binary
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
         gh release upload "${{ needs.release.outputs.tag }}" "caddy-amd64-linux"
 
 
