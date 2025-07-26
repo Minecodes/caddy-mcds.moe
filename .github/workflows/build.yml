@@ -1,0 +1,120 @@
+name: Build and Release on Commit
+
+on:
+  push:
+    tags:
+      - '*'
+      
+jobs:
+  prepare:
+    name: Prepare for Build and Release
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check_commit.outputs.result }}
+      commit: ${{ steps.latest_commit.outputs.commit }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set latest commit
+      id: latest_commit
+      run: echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Check if the latest commit is already released
+      uses: actions/github-script@v7
+      id: check_commit
+      with:
+        script: |
+          const latestCommit = "${{ steps.latest_commit.outputs.commit }}"
+          const { owner, repo } = context.repo
+          let { data: release } = await github.rest.repos.getLatestRelease({ owner, repo })
+          const latestReleaseCommit = release.body.split('@')[1]
+          if (latestReleaseCommit === latestCommit) {
+            return 'false'
+          } else {
+            return 'true'
+          }
+        result-encoding: string
+
+  release:
+    name: Create GitHub Release
+    needs: [prepare]
+    permissions: write-all
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+    - name: Checkout repository for release
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set tag name
+      id: tag
+      run: |
+        tag=$(basename "${{ github.ref }}")
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+
+    - name: Read release description from file
+      id: read_description
+      run: |
+        echo "description=$(release.txt)" >> $GITHUB_OUTPUT
+
+    - name: Create or update GitHub Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        tag="${{ steps.tag.outputs.tag }}"
+        description="${{ steps.read_description.outputs.description }}"
+        gh release create "$tag" --title "$tag" --notes "$description" --draft=true
+
+  build:
+    needs: [prepare, release]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build with xcaddy
+      run: |
+        cd ${{ github.workspace }}
+        sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-xcaddy.list
+        sudo apt update
+        sudo apt install xcaddy
+        xcaddy build \
+          --with github.com/abiosoft/caddy-exec \
+          --with github.com/caddy-dns/desec \
+          --with github.com/caddyserver/transform-encoder \
+          --with github.com/darkweak/souin/plugins/caddy \
+          --with github.com/dunglas/caddy-cbrotli \
+          --with github.com/dunglas/mercure/caddy \
+          --with github.com/dunglas/vulcain/caddy \
+          --with github.com/enum-gg/caddy-discord \
+          --with github.com/greenpau/caddy-git \
+          --with github.com/hairyhenderson/caddy-teapot-module \
+          --with github.com/mholt/caddy-l4 \
+          --with github.com/mholt/caddy-ratelimit \
+          --with magnax.ca/caddy/gopkg \
+          --output caddy-amd64-linux \
+          --embed test:embed/
+        gh release upload "${{ needs.release.outputs.tag }}" "caddy-amd64-linux"
+
+
+  publish:
+    name: Publish Release
+    needs: [release, build]
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - name: Publish GitHub Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+      run: gh release edit "${{ needs.release.outputs.tag }}" --draft=false

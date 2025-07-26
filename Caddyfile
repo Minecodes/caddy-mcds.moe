@@ -1,0 +1,9 @@
+{
+	filesystem a embedded
+}
+
+http://localhost:3000 {
+	file_server {
+		fs a
+	}
+}
